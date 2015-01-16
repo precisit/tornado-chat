@@ -21,14 +21,14 @@ def commandHelp(socket, *_):
 	helpList.sort()
 	socket.write_message("\n".join(helpList))
 
-def commandName(socket, name):
-	if(name == ''):
+def commandName(socket, newName):
+	if(newName == ''):
 		try:
 			socket.write_message('Your username: ' + socket.name)
 		except:
 			socket.write_message('You haven\'t set have a username yet')
 	else:
-		socket.name = name
+		socket.name = newName
 		socket.write_message('Your new username: ' + socket.name)
 
 
@@ -68,9 +68,14 @@ def listResponse(socket, nodeList, emptyResponse):
 
 
 def commandSubscripeToTopic(socket, topic):
+	# Add edge between socket and topic
+	# Update RabbitMQ bindings
 	print 'commandSubscripeToTopic'
 
 def commandUnsubscripeToTopic(socket, topic):
+	# Remove edge between socket and topic
+	# Update RabbitMQ bindings
+	# If topic node has degree 0, remove it
 	print 'commandUnsubscripeToTopic'
 
 
@@ -115,11 +120,15 @@ def processMessage(socket,message):
 		# If the command is valid call the appropriate callback
 		commands[cmd][0](socket,parts[2])
 	else:
-		if socket.name != '':
-			# Otherwise send the message
-			for x in g[userRootNode]:
-				if x != socket:
-					x.write_message("%s: %s" % (socket.name, message))
-		else:
-			socket.write_message("You must set a username before you can send messages")
+		routeMessage(socket,message)
+		
+
+def routeMessage(socket, message):
+	if socket.name != '':
+		# TODO: Proper routing. This simply sends the message to all other users
+		for x in g[userRootNode]:
+			if x != socket:
+				x.write_message("%s: %s" % (socket.name, message))
+	else:
+		socket.write_message("You must set a username before you can send messages")
 
