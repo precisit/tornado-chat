@@ -11,24 +11,17 @@ rl.on('SIGINT', exit);
 
 // Overriding functions for websockethandler
 connection.onopen = function open() {
-	console.log('Connected to server');
-  
-  	// Ask for a username
-	rl.question('Enter a username: ', function (input) {
-		username = input;
-
-		// Enable sending stuff to the server
-		rl.on('line', inputHandler);
-	});
+	// Enable sending stuff to the server
+	rl.on('line', inputHandler);
 };
 
 connection.on('close', function close() {
-  console.log('Disconnected from server');
-  exit();
+	console.log('Disconnected from server');
+	exit();
 });
 
 connection.on('message', function message(data, flags) {
-  console.log(data);
+	console.log(data);
 });
 
 // For handling input from user
@@ -37,7 +30,7 @@ function inputHandler(line) {
 		exit();
 	}
 	else {
-		connection.send(username + ': ' + line, {mask: true});
+		connection.send(line, {mask: true});
 	}
 }
 
