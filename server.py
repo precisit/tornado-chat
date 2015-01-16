@@ -6,10 +6,6 @@ import uuid
 # Internal dependencies
 import router
 
-# List for storing connections
-# router = router.routingHandler()
-
-
 class MainHandler(tornado.web.RequestHandler):
 	def get(self):
 		self.write("message from server")
@@ -17,16 +13,15 @@ class MainHandler(tornado.web.RequestHandler):
 class EchoWebSocket(tornado.websocket.WebSocketHandler):
 	# Override standard functions open, on_message etc
     def open(self):
+    	self.write_message('Welcome')
     	router.addConnection(self)
         print "WebSocket opened. Connections: %d" % router.numberOfConnections()
 
     def on_message(self, message):
-    	router.route(self,message)
-		# print self.id
+    	router.processMessage(self, message)
 
     def on_close(self):
     	router.removeConnection(self)
-        # sockets.remove(self)
         print "WebSocket closed. Connections: %d" % router.numberOfConnections()
 
     def check_origin(self, origin): # Very important. Cross-origin won't work otherwise

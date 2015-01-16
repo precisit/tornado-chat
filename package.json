@@ -4,6 +4,7 @@
   "description": "Tornado chat demo",
   "main": "client.js",
   "dependencies": {
+    "cli-input": "^0.1.8",
     "ws": "^0.6.5"
   },
   "devDependencies": {},
