@@ -4,9 +4,11 @@ userRootNode = 'userRootNode'
 topicRootNode = 'topicRootNode'
 
 # g stores connections between users and topics with
-# one node for each user and one node for each topic.
+# one node for each user and one node for each topic and one node for each socket.
 # Users are accessed by getting neighbors of the userRootNode
 # Topics are accessed by getting neighbors of the topicRootNode
+# An edge between a socket and a topic indicates a subscription
+
 g = nx.Graph()
 g.add_node(userRootNode)
 g.add_node(topicRootNode)
@@ -14,50 +16,115 @@ g.add_node(topicRootNode)
 
 
 
+topicPrefix = 'topic.'
+def topicNameToLabel(topicName):
+	return topicPrefix + topicName
+
+def topicLabelToName(topicLabel):
+	return topicLabel.rstrip(topicPrefix)
+
+userPrefix = 'user.'
+def userNameToLabel(userName):
+	return userPrefix + userName
+
+def userLabelToName(userLabel):
+	return userLabel.rstrip(userPrefix)
+
+
+
+# Function decorator for returning if message is empty
+def returnOnEmpty(func):
+	def decorated(socket,message):
+		if(message == ''):
+			print 'Empty message'
+			return
+		else:
+			func(socket,message)
+	return decorated
+
+
+
 # Generates a message listing available commands and sends it to the user
 def commandHelp(socket, *_):
 	iteratorList = zip(commands.iterkeys(),commands.itervalues())
-	helpList = ["%-10s %s" % (x[0],x[1][1]) for x in iteratorList]
+	helpList = ["%-10s %s" % (x[0],x[1]['helpString']) for x in iteratorList]
 	helpList.sort()
 	socket.write_message("\n".join(helpList))
 
+
+# Sets a new username or returns the current username
 def commandName(socket, newName):
 	if(newName == ''):
 		try:
-			socket.write_message('Your username: ' + socket.name)
-		except:
+			name = list(nx.common_neighbors(g, socket, userRootNode))[0]
+			socket.write_message('Your username: ' + name)
+		except (nx.NetworkXError, IndexError):
 			socket.write_message('You haven\'t set have a username yet')
 	else:
-		socket.name = newName
-		socket.write_message('Your new username: ' + socket.name)
+		# Check that the new name is not already in use
+		if newName not in g:
+			# Remove the old user name node if there was one
+			try:
+				g.remove_node(nx.common_neighbors(g, socket, userRootNode))
+			except nx.NetworkXError:
+				pass
+
+			g.add_edge(newName, socket)
+			g.add_edge(newName, userRootNode)
 
 
+			# Update name in socket object
+			socket.name = newName
+
+			# Acknowledge to user that the name change succeeded
+			socket.write_message('Your new username: ' + newName)
+		else:
+			socket.write_message('Username \"' + newName +'\" not available')
+
+
+# Returns a list of all users
 def commandGetUsersList(socket, *_):
-	listResponse(socket, g.neighbors(userRootNode), "There are 0 users")
+	listResponse(socket, g[userRootNode], "There are 0 named users")
 
 
+# Returns a list of all topics
 def	commandGetTopicsList(socket, *_):
-	listResponse(socket, g.neighbors(topicRootNode), "There are 0 topics")
+	listResponse(socket, g[topicRootNode], "There are 0 topics")
 
 
+# Returns a list of all users subscribing to a topic
 def commandGetTopicUsersList(socket, topic):
-	try:
-		nodeList = g.neighbors(topic).remove(topicRootNode)
-	except nx.NetworkXError:
-		nodeList = []
+	usernames = []
 
-	listResponse(socket, nodeList, "There are 0 subscribers to this topic")
+	if topic in g[userRootNode]:
+		socket.write_message('That\'s a username')
+		return
+	elif topic in g:
+		sockets = [x for x in g[topic]]
+		sockets.remove('topicRootNode')
+
+		
+		for x in sockets:
+			neighbors = list(nx.common_neighbors(g, userRootNode, x))
+			if not neighbors is None:
+				# There should only be one common neighbor and it should be the username
+				usernames.append(neighbors[0])
+
+	listResponse(socket, usernames, 'This topic has 0 subscribers')
+
+	
 
 
+# Returns a list of all topics the user is subscribing to
 def commandGetTopics(socket, *_):
-	nodeList = g.neighbors(socket).remove(userRootNode)
+	nodeList = sorted(nx.common_neighbors(g, socket, topicRootNode))
 	listResponse(socket, nodeList, "You subscribe to 0 topics")
 
-
+# Helper function that produces the message string and sends it through the socket
 def listResponse(socket, nodeList, emptyResponse):
 	response = emptyResponse
-	if(len(nodeList) > 0):
-		response = ["%s" % x.name for x in nodeList]
+	if nodeList is not None:
+		response = ["%s" % x for x in nodeList]
 		response.sort()
 		response = "\n".join(response)
 
@@ -67,43 +134,97 @@ def listResponse(socket, nodeList, emptyResponse):
 	socket.write_message(response)
 
 
+# Called to subscribe to a topic
+@returnOnEmpty
 def commandSubscripeToTopic(socket, topic):
+	# Check that the topic name is not someones username
+	if topic in g[userRootNode]:
+		socket.write_message('Topic name not available. In use as username.')
+		return
+
 	# Add edge between socket and topic
-	# Update RabbitMQ bindings
-	print 'commandSubscripeToTopic'
+	g.add_edge(socket, topic)
 
+	# Add edge between topic and topicRootNode
+	g.add_edge(topic, topicRootNode)
+	print topic
+
+	# TODO: Update RabbitMQ bindings
+
+
+# Called to unsubscribe to a topic
+@returnOnEmpty
 def commandUnsubscripeToTopic(socket, topic):
+	# Check that topic name is not users own username, you can't unsubscribe from that
+	if topic in list(nx.common_neighbors(g, userRootNode, socket)):
+		socket.write_message('You can\'t unsibscribe from your own username')
+
 	# Remove edge between socket and topic
-	# Update RabbitMQ bindings
-	# If topic node has degree 0, remove it
-	print 'commandUnsubscripeToTopic'
+	try:
+		g.remove_edge(socket, topic)
+
+		# Topic node is always connected to topicRootNode so degree>=1 always 
+		if(g.degree(topic) < 2):
+			# Remove topic if no sockets subscribe to it
+			try:
+				g.remove_node(topic)
+			except nx.NetworkXError:
+				pass
+
+	except nx.NetworkXError:
+		socket.write_message('There\s no topic with that name')
+	
+	# TODO: Update RabbitMQ bindings
+
+	
+
+@returnOnEmpty
+def commandPrivateMessage(socket, message):
+	messageParts = message.partition(" ")
+	print "User: " + messageParts[0]
+	print "Message: " + messageParts[2]
+
+@returnOnEmpty
+def commandTopicMessage(socket, message):
+	messageParts = message.partition(" ")
+	print "Topic: " + messageParts[0]
+	print "Message: " + messageParts[2]
 
 
+
+# A dictionary listing avaiable commands. Used to process input and generate help message
 commands = {
-	"/h": [commandHelp, 'get info on commands'],
-	"/n": [commandName, 'get name or set new name'],
-	"/t": [commandGetTopics, 'list the topics you subscribe to'],
-	"/ts": [commandSubscripeToTopic, 'subscribe to topic: /ts <topic> '],
-	"/tu": [commandUnsubscripeToTopic, 'unsubscribe to topic: /tu <topic> '],
-	"/lu": [commandGetUsersList, 'list users'],
-	"/lt": [commandGetTopicsList, 'list topics'],
-	"/lut": [commandGetTopicUsersList, 'list users in a specific topic: /lut <topic>']
+	"/h": 	{'function': commandHelp, 				'helpString': 'get info on commands'},
+	"/n": 	{'function': commandName, 				'helpString': 'get name or set new name'},
+	"/t": 	{'function': commandGetTopics, 			'helpString': 'list the topics you subscribe to'},
+	"/ts": 	{'function': commandSubscripeToTopic, 	'helpString': 'subscribe to topic: /ts <topic>'},
+	"/tu": 	{'function': commandUnsubscripeToTopic, 'helpString': 'unsubscribe to topic: /tu <topic>'},
+	"/lu": 	{'function': commandGetUsersList, 		'helpString': 'list users'},
+	"/lt": 	{'function': commandGetTopicsList, 		'helpString': 'list topics'},
+	"/lut": {'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /lut <topic>'},
+	"/pm": 	{'function': commandPrivateMessage,		'helpString': 'send private message: /pm <user> message'},
+	"/tm": 	{'function': commandPrivateMessage,		'helpString': 'send message to topic: /tm <topic> message'}
 }
 
 
 
 
-
+# TODO: Nodes must be searchable by user name, for message routing
 def addConnection(socket):
 	socket.name = ''
-	g.add_edge(userRootNode, socket)
+	g.add_node(socket)
 	commandHelp(socket)
 
 def removeConnection(socket):
+	# Remove username node
+	try:
+		g.remove_node(list(nx.common_neighbors(g, socket, userRootNode)))
+	except nx.NetworkXError:
+		pass
+	
+	# Remove socket node
 	g.remove_node(socket)
 
-def numberOfConnections():
-	return g.degree(userRootNode)
 
 def processMessage(socket,message):
 	print "MESSAGE: %s" % message
@@ -111,18 +232,17 @@ def processMessage(socket,message):
 	message = message.rstrip();
 
 	# Partition message to get command
-	parts = message.partition(" ")
+	messageParts = message.partition(" ")
 
 	# The command is the first element
-	cmd = parts[0]
+	cmd = messageParts[0]
 
 	if cmd in commands:
 		# If the command is valid call the appropriate callback
-		commands[cmd][0](socket,parts[2])
+		commands[cmd]['function'](socket, messageParts[2])
 	else:
 		routeMessage(socket,message)
 		
-
 def routeMessage(socket, message):
 	if socket.name != '':
 		# TODO: Proper routing. This simply sends the message to all other users
