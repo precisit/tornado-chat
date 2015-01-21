@@ -1,18 +1,34 @@
 var WebSocket = require('ws');
-var readline = require('readline');
-var username;
+var promptModule = require('cli-input');
+
+
 
 // Open websocket TODO: Error handling
 var connection = new WebSocket('ws://0.0.0.0:8080/websocket');
 
 // Initialize prompt
-var rl = readline.createInterface(process.stdin, process.stdout);
-rl.on('SIGINT', exit);
+var prompt = promptModule({
+	input: process.stdin,
+	output: process.stderr,
+	infinite: true,
+	prompt: '',
+	name: ''
+});
+
+prompt.on('value', function(line) {
+	if (line[0] === '/quit') {
+		exit();
+	}
+	else {
+		var message = line.join(' ');
+		connection.send(message, {mask: true});
+	}
+});
 
 // Overriding functions for websockethandler
 connection.onopen = function open() {
 	// Enable sending stuff to the server
-	rl.on('line', inputHandler);
+	prompt.run()
 };
 
 connection.on('close', function close() {
@@ -24,15 +40,6 @@ connection.on('message', function message(data, flags) {
 	console.log(data);
 });
 
-// For handling input from user
-function inputHandler(line) {
-	if (line === 'quit') {
-		exit();
-	}
-	else {
-		connection.send(line, {mask: true});
-	}
-}
 
 // For exiting
 function exit() {
