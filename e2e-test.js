@@ -1,7 +1,13 @@
 var WebSocket = require('ws');
 
 
-var numberOfSockets = 3; 
+//<configuration parameters>
+var numberOfSockets = 3; //The number of sockets to connect to the server
+var j = 0; // Initial delay in time units, counter for delay
+var t = 10; // Milliseconds per time unit
+//</configuration parameters>
+
+
 var sockets = [];
 var connected = 0;
 
@@ -23,7 +29,6 @@ for (var i = 0; i < numberOfSockets; i++) {
 
 var latestData;
 function beginTest() {
-	pr('beginTest called');
 	for (var i = 0; i < numberOfSockets; i++) {
 		sockets[i].onmessage = function message(data, flags) {
 			// pr('INCOMING: ' + data['data']);
@@ -36,12 +41,11 @@ function beginTest() {
 
 	var topic = 'cars';
 	registerTest(
-		'join topic, get proper topic list',
+		'join topic, get proper subscription list',
 		[0,					0],
 		['/ts ' + topic, 	'/t'],
 		topic
 	);
-
 
 
 	registerTest(
@@ -53,7 +57,7 @@ function beginTest() {
 
 
 	registerTest(
-		'get proper user list for topic',
+		'get proper subscriber list for topic',
 		[0],
 		['/ltu ' + topic],
 		'0'
@@ -61,7 +65,7 @@ function beginTest() {
 
 
 	registerTest(
-		'leave topic, get proper topic list',
+		'leave topic, get proper subscription list',
 		[0,					0],
 		['/tu ' + topic,		'/t'],
 		'You subscribe to 0 topics'
@@ -80,9 +84,15 @@ function beginTest() {
 	setTimeout( function () {process.exit()}, j*t);
 }
 
-var j = 0; // Initial delay in time units, counter for delay
-var t = 10; // Milliseconds per time unit
-function registerTest(testName, socketIndices, commands, expectedData) {
+
+
+
+
+// testString: String explaining the test
+// socketIndices: a list of socket indices to which the commands should be sent
+// commands: a list of commands to send to the sockets indicated by socketIndices
+// expectedData: the expected return from the server after the last command has been sent
+function registerTest(testString, socketIndices, commands, expectedData) {
 	// Set timeouts for sending commands
 	for (var i = 0; i < commands.length; i++) {
 		j++;
@@ -95,7 +105,7 @@ function registerTest(testName, socketIndices, commands, expectedData) {
 		passed = (latestData == expectedData);
 
 		// Print information on whether test passed or failed
-		pr((passed ? 'PASSED' : 'FAILED') + '\t' + testName);
+		pr((passed ? 'PASSED' : 'FAILED') + '\t' + testString);
 
 		// If the test didn't pass
 		if (!passed) {
@@ -106,12 +116,15 @@ function registerTest(testName, socketIndices, commands, expectedData) {
 	}, j*t);
 }
 
+// Didn't figure out how to do this properly with an anonymous function so here's a regular function instead
 function getSendFunction(socketIndex, command) {
 	return function () {
 		sockets[socketIndex].send(command);
 	};
 }
 
+
+// Function for printing
 function pr(s) {
 	console.log(s);
 }
