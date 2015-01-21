@@ -21,14 +21,14 @@ def topicNameToLabel(topicName):
 	return topicPrefix + topicName
 
 def topicLabelToName(topicLabel):
-	return topicLabel.rstrip(topicPrefix)
+	return topicLabel.partition(topicPrefix)[2]
 
 userPrefix = 'user.'
 def userNameToLabel(userName):
 	return userPrefix + userName
 
 def userLabelToName(userLabel):
-	return userLabel.rstrip(userPrefix)
+	return userLabel.partition(userPrefix)[2]
 
 
 
@@ -53,54 +53,57 @@ def commandHelp(socket, *_):
 
 
 # Sets a new username or returns the current username
-def commandName(socket, newName):
-	if(newName == ''):
+def commandName(socket, newUserName):
+	if(newUserName == ''):
 		try:
-			name = list(nx.common_neighbors(g, socket, userRootNode))[0]
-			socket.write_message('Your username: ' + name)
+			userLabel = list(nx.common_neighbors(g, socket, userRootNode))[0]
+			socket.write_message('Your username: ' + userLabelToName(userLabel))
 		except (nx.NetworkXError, IndexError):
 			socket.write_message('You haven\'t set have a username yet')
 	else:
+		newUserLabel = userNameToLabel(newUserName)
 		# Check that the new name is not already in use
-		if newName not in g:
+		if newUserLabel not in g:
 			# Remove the old user name node if there was one
 			try:
-				g.remove_node(nx.common_neighbors(g, socket, userRootNode))
+				nodes = list(nx.common_neighbors(g, socket, userRootNode))
+				for node in nodes:
+					g.remove_node(node) 
 			except nx.NetworkXError:
 				pass
 
-			g.add_edge(newName, socket)
-			g.add_edge(newName, userRootNode)
-
-
-			# Update name in socket object
-			socket.name = newName
+			g.add_edge(newUserLabel, socket)
+			g.add_edge(newUserLabel, userRootNode)
 
 			# Acknowledge to user that the name change succeeded
-			socket.write_message('Your new username: ' + newName)
+			socket.write_message('Your new username: ' + newUserName)
 		else:
-			socket.write_message('Username \"' + newName +'\" not available')
+			socket.write_message("Username \'%s\' is not available" % newUserName)
 
 
 # Returns a list of all users
 def commandGetUsersList(socket, *_):
-	listResponse(socket, g[userRootNode], "There are 0 named users")
+	userLabels = g[userRootNode]
+	userNames = [userLabelToName(x) for x in userLabels]
+	listResponse(socket, userNames, "There are 0 named users")
 
 
 # Returns a list of all topics
 def	commandGetTopicsList(socket, *_):
-	listResponse(socket, g[topicRootNode], "There are 0 topics")
+	topicLabels = g[topicRootNode]
+	topicNames = [topicLabelToName(x) for x in topicLabels]
+	listResponse(socket, topicNames, "There are 0 topics")
 
 
 # Returns a list of all users subscribing to a topic
-def commandGetTopicUsersList(socket, topic):
+def commandGetTopicUsersList(socket, topicName):
 	usernames = []
+	topicLabel = topicNameToLabel(topicName)
 
-	if topic in g[userRootNode]:
-		socket.write_message('That\'s a username')
-		return
-	elif topic in g:
-		sockets = [x for x in g[topic]]
+	# TODO: This algorithm is very unoptimized
+
+	if topicLabel in g:
+		sockets = [x for x in g[topicLabel]]
 		sockets.remove('topicRootNode')
 
 		
@@ -108,7 +111,7 @@ def commandGetTopicUsersList(socket, topic):
 			neighbors = list(nx.common_neighbors(g, userRootNode, x))
 			if not neighbors is None:
 				# There should only be one common neighbor and it should be the username
-				usernames.append(neighbors[0])
+				usernames.append(userLabelToName(neighbors[0])
 
 	listResponse(socket, usernames, 'This topic has 0 subscribers')
 
@@ -117,8 +120,9 @@ def commandGetTopicUsersList(socket, topic):
 
 # Returns a list of all topics the user is subscribing to
 def commandGetTopics(socket, *_):
-	nodeList = sorted(nx.common_neighbors(g, socket, topicRootNode))
-	listResponse(socket, nodeList, "You subscribe to 0 topics")
+	topicLabels = sorted(nx.common_neighbors(g, socket, topicRootNode))
+	topicNames = [topicLabelToName(x) for x in topicLabels]
+	listResponse(socket, topicNames, "You subscribe to 0 topics")
 
 # Helper function that produces the message string and sends it through the socket
 def listResponse(socket, nodeList, emptyResponse):
@@ -136,43 +140,34 @@ def listResponse(socket, nodeList, emptyResponse):
 
 # Called to subscribe to a topic
 @returnOnEmpty
-def commandSubscripeToTopic(socket, topic):
-	# Check that the topic name is not someones username
-	if topic in g[userRootNode]:
-		socket.write_message('Topic name not available. In use as username.')
-		return
+def commandSubscripeToTopic(socket, topicName):
+	topicLabel = topicNameToLabel(topicName)
 
 	# Add edge between socket and topic
-	g.add_edge(socket, topic)
+	g.add_edge(socket, topicLabel)
 
 	# Add edge between topic and topicRootNode
-	g.add_edge(topic, topicRootNode)
-	print topic
+	g.add_edge(topicLabel, topicRootNode)
 
 	# TODO: Update RabbitMQ bindings
 
 
 # Called to unsubscribe to a topic
 @returnOnEmpty
-def commandUnsubscripeToTopic(socket, topic):
-	# Check that topic name is not users own username, you can't unsubscribe from that
-	if topic in list(nx.common_neighbors(g, userRootNode, socket)):
-		socket.write_message('You can\'t unsibscribe from your own username')
+def commandUnsubscripeToTopic(socket, topicName):
+	topicLabel = topicNameToLabel(topicName)
 
 	# Remove edge between socket and topic
-	try:
-		g.remove_edge(socket, topic)
+	if topicLabel in g and topicLabel in g[socket]:
+		g.remove_edge(socket, topicLabel)
 
 		# Topic node is always connected to topicRootNode so degree>=1 always 
-		if(g.degree(topic) < 2):
+		if(g.degree(topicLabel) < 2):
 			# Remove topic if no sockets subscribe to it
-			try:
-				g.remove_node(topic)
-			except nx.NetworkXError:
-				pass
+			g.remove_node(topicLabel)
 
-	except nx.NetworkXError:
-		socket.write_message('There\s no topic with that name')
+	else:
+		socket.write_message('You don\'t subscribe to that topic')
 	
 	# TODO: Update RabbitMQ bindings
 
@@ -218,7 +213,9 @@ def addConnection(socket):
 def removeConnection(socket):
 	# Remove username node
 	try:
-		g.remove_node(list(nx.common_neighbors(g, socket, userRootNode)))
+		userLabel = list(nx.common_neighbors(g, socket, userRootNode))
+		for x in userLabel:
+			g.remove_node(x)
 	except nx.NetworkXError:
 		pass
 	
