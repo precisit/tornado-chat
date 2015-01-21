@@ -97,7 +97,7 @@ def	commandGetTopicsList(socket, *_):
 
 # Returns a list of all users subscribing to a topic
 def commandGetTopicUsersList(socket, topicName):
-	usernames = []
+	userNames = []
 	topicLabel = topicNameToLabel(topicName)
 
 	# TODO: This algorithm is very unoptimized
@@ -111,9 +111,9 @@ def commandGetTopicUsersList(socket, topicName):
 			neighbors = list(nx.common_neighbors(g, userRootNode, x))
 			if not neighbors is None:
 				# There should only be one common neighbor and it should be the username
-				usernames.append(userLabelToName(neighbors[0])
+				userNames.append(userLabelToName(neighbors[0]))
 
-	listResponse(socket, usernames, 'This topic has 0 subscribers')
+	listResponse(socket, userNames, 'This topic has 0 subscribers')
 
 	
 
@@ -178,6 +178,7 @@ def commandPrivateMessage(socket, message):
 	messageParts = message.partition(" ")
 	print "User: " + messageParts[0]
 	print "Message: " + messageParts[2]
+	print "Routing key:" + userPrefix + messageParts[0]
 
 @returnOnEmpty
 def commandTopicMessage(socket, message):
@@ -196,7 +197,7 @@ commands = {
 	"/tu": 	{'function': commandUnsubscripeToTopic, 'helpString': 'unsubscribe to topic: /tu <topic>'},
 	"/lu": 	{'function': commandGetUsersList, 		'helpString': 'list users'},
 	"/lt": 	{'function': commandGetTopicsList, 		'helpString': 'list topics'},
-	"/lut": {'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /lut <topic>'},
+	"/ltu": {'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /ltu <topic>'},
 	"/pm": 	{'function': commandPrivateMessage,		'helpString': 'send private message: /pm <user> message'},
 	"/tm": 	{'function': commandPrivateMessage,		'helpString': 'send message to topic: /tm <topic> message'}
 }
