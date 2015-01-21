@@ -15,16 +15,17 @@ class EchoWebSocket(tornado.websocket.WebSocketHandler):
     def open(self):
     	self.write_message('Welcome')
     	router.addConnection(self)
-        print "WebSocket opened. Connections: %d" % router.numberOfConnections()
+        print "WebSocket opened."
 
     def on_message(self, message):
     	router.processMessage(self, message)
 
     def on_close(self):
     	router.removeConnection(self)
-        print "WebSocket closed. Connections: %d" % router.numberOfConnections()
+        print "WebSocket closed."
 
     def check_origin(self, origin): # Very important. Cross-origin won't work otherwise
+    	print "server.check_origin(): Origin: " + origin
     	return True
 		
 
