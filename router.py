@@ -1,4 +1,5 @@
 import networkx as nx
+import json
 
 userRootNode = 'userRootNode'
 topicRootNode = 'topicRootNode'
@@ -52,28 +53,49 @@ def commandHelp(socket, *_):
 	socket.write_message("\n".join(helpList))
 
 
+def getUserLabel(socket):
+	try:
+		return list(nx.common_neighbors(g, socket, userRootNode))[0]
+	except (nx.NetworkXError, IndexError):
+		return None
+
+def getUserName(socket):
+	userLabel = getUserLabel(socket)
+	if userLabel is None:
+		return None
+	else:
+		return userLabelToName(userLabel)
+
+
 # Sets a new username or returns the current username
 def commandName(socket, newUserName):
+	newUserName = str(newUserName)
+
 	if(newUserName == ''):
-		try:
-			userLabel = list(nx.common_neighbors(g, socket, userRootNode))[0]
-			socket.write_message('Your username: ' + userLabelToName(userLabel))
-		except (nx.NetworkXError, IndexError):
+		userName = getUserName(socket)
+		if userName is None:
 			socket.write_message('You haven\'t set have a username yet')
+		else:
+			socket.write_message('Your username: ' + userName)
+		
+			
 	else:
 		newUserLabel = userNameToLabel(newUserName)
 		# Check that the new name is not already in use
 		if newUserLabel not in g:
 			# Remove the old user name node if there was one
-			try:
-				nodes = list(nx.common_neighbors(g, socket, userRootNode))
-				for node in nodes:
-					g.remove_node(node) 
-			except nx.NetworkXError:
-				pass
+			oldUserLabel = getUserLabel(socket)
+			if oldUserLabel is not None:
+				g.remove_node(oldUserLabel)
+				pikaClient.unbind(oldUserLabel)
 
+
+			# Add nodes and edges to routing graph
 			g.add_edge(newUserLabel, socket)
 			g.add_edge(newUserLabel, userRootNode)
+
+			# Add RabbitMQ bindings
+			pikaClient.bind(newUserLabel)
 
 			# Acknowledge to user that the name change succeeded
 			socket.write_message('Your new username: ' + newUserName)
@@ -149,7 +171,8 @@ def commandSubscripeToTopic(socket, topicName):
 	# Add edge between topic and topicRootNode
 	g.add_edge(topicLabel, topicRootNode)
 
-	# TODO: Update RabbitMQ bindings
+	# Update RabbitMQ bindings
+	pikaClient.bind(topicLabel)
 
 
 # Called to unsubscribe to a topic
@@ -166,25 +189,40 @@ def commandUnsubscripeToTopic(socket, topicName):
 			# Remove topic if no sockets subscribe to it
 			g.remove_node(topicLabel)
 
+			# Update RabbitMQ bindings
+			pikaClient.unbind(topicLabel)
+
 	else:
 		socket.write_message('You don\'t subscribe to that topic')
-	
-	# TODO: Update RabbitMQ bindings
 
 	
 
 @returnOnEmpty
 def commandPrivateMessage(socket, message):
-	messageParts = message.partition(" ")
-	print "User: " + messageParts[0]
-	print "Message: " + messageParts[2]
-	print "Routing key:" + userPrefix + messageParts[0]
+	messageHelperFunction(socket, userPrefix, message)
 
 @returnOnEmpty
 def commandTopicMessage(socket, message):
+	messageHelperFunction(socket, topicPrefix, message)
+
+def messageHelperFunction(socket, prefix, message):
 	messageParts = message.partition(" ")
-	print "Topic: " + messageParts[0]
-	print "Message: " + messageParts[2]
+	routing_key = prefix + messageParts[0]
+	message = messageParts[2]
+	print 'rabbitSend'
+	print 'routing_key: ' + routing_key
+	print 'message: ' + message
+
+	rabbitSend(socket, routing_key, message)
+
+@returnOnEmpty
+def commandSetAddressToUser(socket, userName):
+	socket.routing_key = userNameToLabel(userName)
+
+@returnOnEmpty
+def commandSetAddressToTopic(socket, topicName):
+	socket.routing_key = topicNameToLabel(topicName)
+
 
 
 
@@ -198,17 +236,18 @@ commands = {
 	"/lu": 	{'function': commandGetUsersList, 		'helpString': 'list users'},
 	"/lt": 	{'function': commandGetTopicsList, 		'helpString': 'list topics'},
 	"/ltu": {'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /ltu <topic>'},
-	"/pm": 	{'function': commandPrivateMessage,		'helpString': 'send private message: /pm <user> message'},
-	"/tm": 	{'function': commandPrivateMessage,		'helpString': 'send message to topic: /tm <topic> message'}
+	"/mu": 	{'function': commandPrivateMessage,		'helpString': 'send message to user: /mu <user> message'},
+	"/mt": 	{'function': commandTopicMessage,		'helpString': 'send message to topic: /mt <topic> message'},
+	"/au":	{'function': commandSetAddressToUser,	'helpString': 'set address to user: /au <user>'},
+	"/at":	{'function': commandSetAddressToTopic,	'helpString': 'set address to topic: /at <topic>'}
 }
 
 
 
 
-# TODO: Nodes must be searchable by user name, for message routing
 def addConnection(socket):
-	socket.name = ''
 	g.add_node(socket)
+	socket.routing_key = None
 	commandHelp(socket)
 
 def removeConnection(socket):
@@ -217,6 +256,9 @@ def removeConnection(socket):
 		userLabel = list(nx.common_neighbors(g, socket, userRootNode))
 		for x in userLabel:
 			g.remove_node(x)
+
+			# Update RabbitMQ bindings
+			pikaClient.unbind(x)
 	except nx.NetworkXError:
 		pass
 	
@@ -224,7 +266,7 @@ def removeConnection(socket):
 	g.remove_node(socket)
 
 
-def processMessage(socket,message):
+def processWebSocketMessage(socket, message):
 	print "MESSAGE: %s" % message
 	# Remove trailing whitespace
 	message = message.rstrip();
@@ -240,13 +282,42 @@ def processMessage(socket,message):
 		commands[cmd]['function'](socket, messageParts[2])
 	else:
 		routeMessage(socket,message)
-		
+
+
+
 def routeMessage(socket, message):
-	if socket.name != '':
-		# TODO: Proper routing. This simply sends the message to all other users
-		for x in g[userRootNode]:
-			if x != socket:
-				x.write_message("%s: %s" % (socket.name, message))
-	else:
+	if socket.routing_key is None:
+		socket.write_message("No address is set. See help (/h)")
+		return
+
+	print 'socket.routing_key: ' + socket.routing_key
+	rabbitSend(socket, socket.routing_key, message)
+
+def rabbitSend(socket, routing_key, message):
+	userName = getUserName(socket)
+	if userName is None:
 		socket.write_message("You must set a username before you can send messages")
+		return
+
+	rabbitMessage = {
+		'sender': userName,
+		'body': message
+	}
+	pikaClient.send(routing_key, json.dumps(rabbitMessage))
+
+
+
+def processRabbitMQMessage(routing_key, message):
+	try:
+		iterator = g.neighbors_iter(routing_key)		
+	except nx.NetworkXError:
+		print 'Invalid routing key received'
+		return
+
+	data = dict(json.loads(message))
+
+	for x in iterator:
+		if x is not userRootNode and x is not topicRootNode:
+			x.write_message("%s: %s" % (data['sender'], data['body']))
+		
 
