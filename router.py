@@ -86,7 +86,9 @@ def commandName(socket, newUserName):
 			# Remove the old user name node if there was one
 			oldUserLabel = getUserLabel(socket)
 			if oldUserLabel is not None:
+				# Remove node from graph
 				g.remove_node(oldUserLabel)
+				# Remove RabbitMQ bindings
 				pikaClient.unbind(oldUserLabel)
 
 
@@ -103,22 +105,25 @@ def commandName(socket, newUserName):
 			socket.write_message("Username \'%s\' is not available" % newUserName)
 
 
-# Returns a list of all users
-def commandGetUsersList(socket, *_):
+def getUsers():
 	userLabels = g[userRootNode]
 	userNames = [userLabelToName(x) for x in userLabels]
-	listResponse(socket, userNames, "There are 0 named users")
 
+# Returns a list of all users
+def commandListUsers(socket, *_):
+	listResponse(socket, getUsers(), "There are 0 named users")
 
-# Returns a list of all topics
-def	commandGetTopicsList(socket, *_):
+def getTopics():
 	topicLabels = g[topicRootNode]
 	topicNames = [topicLabelToName(x) for x in topicLabels]
-	listResponse(socket, topicNames, "There are 0 topics")
+
+# Returns a list of all topics
+def	commandListTopics(socket, *_):
+	listResponse(socket, getTopics(), "There are 0 topics")
 
 
 # Returns a list of all users subscribing to a topic
-def commandGetTopicUsersList(socket, topicName):
+def commandListTopicUsers(socket, topicName):
 	userNames = []
 	topicLabel = topicNameToLabel(topicName)
 
@@ -141,7 +146,7 @@ def commandGetTopicUsersList(socket, topicName):
 
 
 # Returns a list of all topics the user is subscribing to
-def commandGetTopics(socket, *_):
+def commandListSubscriptions(socket, *_):
 	topicLabels = sorted(nx.common_neighbors(g, socket, topicRootNode))
 	topicNames = [topicLabelToName(x) for x in topicLabels]
 	listResponse(socket, topicNames, "You subscribe to 0 topics")
@@ -231,12 +236,12 @@ commandPrefix = '/'
 commands = {
 	commandPrefix+"h": 		{'function': commandHelp, 				'helpString': 'get info on commands'},
 	commandPrefix+"n": 		{'function': commandName, 				'helpString': 'get name or set new name'},
-	commandPrefix+"t": 		{'function': commandGetTopics, 			'helpString': 'list the topics you subscribe to'},
+	commandPrefix+"t": 		{'function': commandListSubscriptions, 	'helpString': 'list the topics you subscribe to'},
 	commandPrefix+"ts": 	{'function': commandSubscripeToTopic, 	'helpString': 'subscribe to topic: /ts <topic>'},
 	commandPrefix+"tu": 	{'function': commandUnsubscripeToTopic, 'helpString': 'unsubscribe to topic: /tu <topic>'},
-	commandPrefix+"lu": 	{'function': commandGetUsersList, 		'helpString': 'list users'},
-	commandPrefix+"lt": 	{'function': commandGetTopicsList, 		'helpString': 'list topics'},
-	commandPrefix+"ltu":	{'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /ltu <topic>'},
+	commandPrefix+"lu": 	{'function': commandListUsers, 			'helpString': 'list users'},
+	commandPrefix+"lt": 	{'function': commandListTopics, 		'helpString': 'list topics'},
+	commandPrefix+"ltu":	{'function': commandListTopicUsers, 	'helpString': 'list users in a specific topic: /ltu <topic>'},
 	commandPrefix+"mu": 	{'function': commandPrivateMessage,		'helpString': 'send message to user: /mu <user> message'},
 	commandPrefix+"mt": 	{'function': commandTopicMessage,		'helpString': 'send message to topic: /mt <topic> message'},
 	commandPrefix+"au":		{'function': commandSetAddressToUser,	'helpString': 'set address to user: /au <user>'},
