@@ -48,7 +48,8 @@ function beginTest() {
 	// Essentially timeouts are set to send commands and check responses in a specific order.
 
 	var topic = 'someTopic';
-	var message = 'someMessage'
+	var message = 'someMessage';
+	var name = 'someName';
 	
 
 	registerTest(
@@ -113,12 +114,30 @@ function beginTest() {
 		'0: '+message
 	)
 
+
 	registerTest(
 		'send topic message',
 		[1,				2,				0],
 		['/ts '+topic, 	'/ts '+topic, 	'/mt '+topic+' '+message],
 		2,
 		'0: '+message
+	)
+
+
+	registerTest(
+		'unable to change name to existing name',
+		[0],
+		['/n 1'],
+		0,
+		"Username '1' is not available"
+	)
+
+	registerTest(
+		'able to change name',
+		[0],
+		['/n '+name],
+		0,
+		'Your new username: '+name
 	)
 
 
