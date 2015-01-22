@@ -1,10 +1,14 @@
 var WebSocket = require('ws');
 var promptModule = require('cli-input');
 
+var port = 8080;
 
+if (process.argv.length > 2) {
+	port = process.argv[2];
+}
 
 // Open websocket TODO: Error handling
-var connection = new WebSocket('ws://0.0.0.0:8080/websocket');
+var connection = new WebSocket('ws://0.0.0.0:' + port + '/websocket');
 
 // Initialize prompt
 var prompt = promptModule({
