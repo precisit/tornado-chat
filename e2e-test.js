@@ -98,7 +98,7 @@ function beginTest() {
 
 
 	registerTest(
-		'send private message from', 
+		'send private message from one user to another', 
 		[0],
 		['/mu 1 '+message],
 		1,
