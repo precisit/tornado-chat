@@ -105,26 +105,18 @@ def commandName(socket, newUserName):
 def getUsers():
 	userLabels = g[userRootNode]
 	userNames = [userLabelToName(x) for x in userLabels]
-
-# Returns a list of all users
-def commandListUsers(socket, *_):
-	listResponse(socket, getUsers(), "There are 0 named users")
+	return userNames
 
 def getTopics():
 	topicLabels = g[topicRootNode]
 	topicNames = [topicLabelToName(x) for x in topicLabels]
+	return topicNames
 
-# Returns a list of all topics
-def	commandListTopics(socket, *_):
-	listResponse(socket, getTopics(), "There are 0 topics")
-
-
-# Returns a list of all users subscribing to a topic
-def commandListTopicUsers(socket, topicName):
+def getTopicUsers(topicName):
 	userNames = []
 	topicLabel = topicNameToLabel(topicName)
 
-	# TODO: This algorithm is very unoptimized
+	# TODO: Optimize the following fulhack (<--swedish word)
 
 	if topicLabel in g:
 		sockets = [x for x in g[topicLabel]]
@@ -137,10 +129,22 @@ def commandListTopicUsers(socket, topicName):
 				# There should only be one common neighbor and it should be the username
 				userNames.append(userLabelToName(neighbors[0]))
 
-	listResponse(socket, userNames, 'This topic has 0 subscribers')
+	return userNames
+
+
+# Returns a list of all users
+def commandListUsers(socket, *_):
+	listResponse(socket, getUsers(), "There are 0 named users")
+
+# Returns a list of all topics
+def	commandListTopics(socket, *_):
+	listResponse(socket, getTopics(), "There are 0 topics")
+
+# Returns a list of all users subscribing to a topic
+def commandListTopicUsers(socket, topicName):
+	listResponse(socket, getTopicUsers(topicName), 'This topic has 0 subscribers')
 
 	
-
 
 # Returns a list of all topics the user is subscribing to
 def commandGetTopics(socket, *_):
@@ -267,6 +271,8 @@ def removeConnection(socket):
 	
 	# Remove socket node
 	g.remove_node(socket)
+
+	# TODO: Remove all topic nodes for which there are no longer any subscribers
 
 
 def processWebSocketMessage(socket, message):
