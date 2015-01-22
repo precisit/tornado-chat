@@ -227,19 +227,20 @@ def commandSetAddressToTopic(socket, topicName):
 
 
 # A dictionary listing avaiable commands. Used to process input and generate help message
+commandPrefix = '/'
 commands = {
-	"/h": 	{'function': commandHelp, 				'helpString': 'get info on commands'},
-	"/n": 	{'function': commandName, 				'helpString': 'get name or set new name'},
-	"/t": 	{'function': commandGetTopics, 			'helpString': 'list the topics you subscribe to'},
-	"/ts": 	{'function': commandSubscripeToTopic, 	'helpString': 'subscribe to topic: /ts <topic>'},
-	"/tu": 	{'function': commandUnsubscripeToTopic, 'helpString': 'unsubscribe to topic: /tu <topic>'},
-	"/lu": 	{'function': commandGetUsersList, 		'helpString': 'list users'},
-	"/lt": 	{'function': commandGetTopicsList, 		'helpString': 'list topics'},
-	"/ltu": {'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /ltu <topic>'},
-	"/mu": 	{'function': commandPrivateMessage,		'helpString': 'send message to user: /mu <user> message'},
-	"/mt": 	{'function': commandTopicMessage,		'helpString': 'send message to topic: /mt <topic> message'},
-	"/au":	{'function': commandSetAddressToUser,	'helpString': 'set address to user: /au <user>'},
-	"/at":	{'function': commandSetAddressToTopic,	'helpString': 'set address to topic: /at <topic>'}
+	commandPrefix+"h": 		{'function': commandHelp, 				'helpString': 'get info on commands'},
+	commandPrefix+"n": 		{'function': commandName, 				'helpString': 'get name or set new name'},
+	commandPrefix+"t": 		{'function': commandGetTopics, 			'helpString': 'list the topics you subscribe to'},
+	commandPrefix+"ts": 	{'function': commandSubscripeToTopic, 	'helpString': 'subscribe to topic: /ts <topic>'},
+	commandPrefix+"tu": 	{'function': commandUnsubscripeToTopic, 'helpString': 'unsubscribe to topic: /tu <topic>'},
+	commandPrefix+"lu": 	{'function': commandGetUsersList, 		'helpString': 'list users'},
+	commandPrefix+"lt": 	{'function': commandGetTopicsList, 		'helpString': 'list topics'},
+	commandPrefix+"ltu":	{'function': commandGetTopicUsersList, 	'helpString': 'list users in a specific topic: /ltu <topic>'},
+	commandPrefix+"mu": 	{'function': commandPrivateMessage,		'helpString': 'send message to user: /mu <user> message'},
+	commandPrefix+"mt": 	{'function': commandTopicMessage,		'helpString': 'send message to topic: /mt <topic> message'},
+	commandPrefix+"au":		{'function': commandSetAddressToUser,	'helpString': 'set address to user: /au <user>'},
+	commandPrefix+"at":		{'function': commandSetAddressToTopic,	'helpString': 'set address to topic: /at <topic>'}
 }
 
 
@@ -271,15 +272,18 @@ def processWebSocketMessage(socket, message):
 	# Remove trailing whitespace
 	message = message.rstrip();
 
-	# Partition message to get command
-	messageParts = message.partition(" ")
+	if(message[0] == commandPrefix):
+		# Partition message to get command
+		messageParts = message.partition(" ")
 
-	# The command is the first element
-	cmd = messageParts[0]
+		# The command is the first element
+		cmd = messageParts[0]
 
-	if cmd in commands:
-		# If the command is valid call the appropriate callback
-		commands[cmd]['function'](socket, messageParts[2])
+		if cmd in commands:
+			# If the command is valid call the appropriate callback
+			commands[cmd]['function'](socket, messageParts[2])
+		else:
+			socket.write_message('Unrecognized command: ' + cmd)
 	else:
 		routeMessage(socket,message)
 
