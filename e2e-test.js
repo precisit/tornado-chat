@@ -27,16 +27,18 @@ for (var i = 0; i < numberOfSockets; i++) {
 	};
 };
 
-var latestData;
+var latestData = [];
+
+function onmessageFunction(i) {
+	return function (data, flags) {
+		latestData[i] = data['data'];
+	};
+}
 
 function beginTest() {
 	for (var i = 0; i < numberOfSockets; i++) {
-
-		// TODO: Proper onmessage so each socket can store it's latest data separately
-		sockets[i].onmessage = function message(data, flags) {
-			// pr('INCOMING: ' + data['data']);
-			latestData = data['data'];
-		}
+		// Set callback
+		sockets[i].onmessage = onmessageFunction(i);
 
 		// Set names
 		sockets[i].send('/n ' + i);
@@ -46,10 +48,14 @@ function beginTest() {
 	// Essentially timeouts are set to send commands and check responses in a specific order.
 
 	var topic = 'someTopic';
+	var message = 'someMessage'
+	
+
 	registerTest(
 		'join topic, get proper subscription list',
-		[0,					0],
-		['/ts ' + topic, 	'/t'],
+		[0,				0],
+		['/ts '+topic, 	'/t'],
+		0,
 		topic
 	);
 
@@ -58,6 +64,7 @@ function beginTest() {
 		'get proper topic list for other socket',
 		[1],
 		['/lt'],
+		0,
 		topic
 	);
 
@@ -65,15 +72,17 @@ function beginTest() {
 	registerTest(
 		'get proper subscriber list for topic',
 		[0],
-		['/ltu ' + topic],
+		['/ltu '+topic],
+		0,
 		'0'
 	);
 
 
 	registerTest(
 		'leave topic, get proper subscription list',
-		[0,					0],
-		['/tu ' + topic,	'/t'],
+		[0,				0],
+		['/tu '+topic,	'/t'],
+		0,
 		'You subscribe to 0 topics'
 	);
 
@@ -82,8 +91,35 @@ function beginTest() {
 		'get proper topic list for other socket',
 		[1],
 		['/lt'],
+		1,
 		'There are 0 topics'
 	);
+
+
+	registerTest(
+		'send private message from', 
+		[0],
+		['/mu 1 '+message],
+		1,
+		'0: '+message
+	)
+
+
+	registerTest(
+		'send topic message',
+		[1,				2,				0],
+		['/ts '+topic, 	'/ts '+topic, 	'/mt '+topic+' '+message],
+		1,
+		'0: '+message
+	)
+
+	registerTest(
+		'send topic message',
+		[1,				2,				0],
+		['/ts '+topic, 	'/ts '+topic, 	'/mt '+topic+' '+message],
+		2,
+		'0: '+message
+	)
 
 
 	j++;
@@ -97,33 +133,35 @@ function beginTest() {
 // testString: String explaining the test
 // socketIndices: a list of socket indices to which the commands should be sent
 // commands: a list of commands to send to the sockets indicated by socketIndices
+// socketIndex: index of socket for which to compare latest data with expected data
 // expectedData: the expected return from the server after the last command has been sent
-function registerTest(testString, socketIndices, commands, expectedData) {
+function registerTest(testString, socketIndices, commands, socketIndex, expectedData) {
 	// Set timeouts for sending commands
 	for (var i = 0; i < commands.length; i++) {
 		j++;
-		setTimeout(getSendFunction(socketIndices[i], commands[i]), j*t);
+		setTimeout(sendFunction(socketIndices[i], commands[i]), j*t);
 	}
 
 	// Set timeout for checking result
 	j++;
 	setTimeout( function () {
-		passed = (latestData == expectedData);
+		received = latestData[socketIndex]
+		passed = (received == expectedData);
 
 		// Print information on whether test passed or failed
-		pr((passed ? 'PASSED' : 'FAILED') + '\t' + testString);
+		pr((passed ? '[X] PASSED' : '[ ] FAILED') + '\t' + testString);
 
 		// If the test didn't pass
 		if (!passed) {
 			// Print info on what was expected and what was received
-			pr('\t expected: ' + expectedData);
-			pr('\t received: ' + latestData);
+			pr('\t expected: \'' + expectedData + '\'');
+			pr('\t received: \'' + received + '\'');
 		}
 	}, j*t);
 }
 
 // Didn't figure out how to do this properly with an anonymous function so here's a regular function instead
-function getSendFunction(socketIndex, command) {
+function sendFunction(socketIndex, command) {
 	return function () {
 		sockets[socketIndex].send(command);
 	};
