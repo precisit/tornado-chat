@@ -11,7 +11,7 @@ var t = 10; // Milliseconds per time unit
 var sockets = [];
 var connected = 0;
 
-// Create sockets
+// Setup connections
 for (var i = 0; i < numberOfSockets; i++) {
 	sockets[i] = new WebSocket('ws://0.0.0.0:8080/websocket');
 
@@ -28,18 +28,24 @@ for (var i = 0; i < numberOfSockets; i++) {
 };
 
 var latestData;
+
 function beginTest() {
 	for (var i = 0; i < numberOfSockets; i++) {
+
+		// TODO: Proper onmessage so each socket can store it's latest data separately
 		sockets[i].onmessage = function message(data, flags) {
 			// pr('INCOMING: ' + data['data']);
 			latestData = data['data'];
 		}
 
+		// Set names
 		sockets[i].send('/n ' + i);
 	}
 
+	// Register different tests. See below for implementation of function registerTest.
+	// Essentially timeouts are set to send commands and check responses in a specific order.
 
-	var topic = 'cars';
+	var topic = 'someTopic';
 	registerTest(
 		'join topic, get proper subscription list',
 		[0,					0],
@@ -67,7 +73,7 @@ function beginTest() {
 	registerTest(
 		'leave topic, get proper subscription list',
 		[0,					0],
-		['/tu ' + topic,		'/t'],
+		['/tu ' + topic,	'/t'],
 		'You subscribe to 0 topics'
 	);
 
