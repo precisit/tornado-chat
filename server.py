@@ -89,7 +89,7 @@ class PikaClient(object):
 		# Declare exchange
 		channel.exchange_declare(
 			exchange = rabbitmq_exchange_name,
-			type = 'topic'
+			type = 'direct'
 		)
 
 		# Declare queue
