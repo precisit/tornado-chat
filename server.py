@@ -10,7 +10,7 @@ import sys
 import router
 
 # Configuration parameters
-rabbitmq_exchange_name = 'tornado-chat'
+rabbitmq_exchange_name = 'tornado-chat-2'
 
 
 class MainHandler(tornado.web.RequestHandler):
