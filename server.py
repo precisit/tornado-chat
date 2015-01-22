@@ -83,8 +83,6 @@ class PikaClient(object):
 	def on_channel_open(self, channel):
 		print 'PikaClient: Channel open, Declaring exchange'
 		self.channel = channel
-		# declare exchanges, which in turn, declare
-		# queues, and bind exchange to queues
 
 		# Declare exchange
 		channel.exchange_declare(
@@ -118,18 +116,6 @@ class PikaClient(object):
 		self.io_loop.stop()
  
 	def on_message(self, channel, method, header, body):
-		# print 'PikaClient: message received: %s' % body
-		# print 'PikaClient: message received:'
-		# print 'channel:'
-		# print channel
-		# print 'method:'
-		# print method
-		# print 'header:'
-		# print header
-		# print 'body:'
-		# print body
-		# print 'routing_key:'
-		# print method.routing_key
 		router.processRabbitMQMessage(method.routing_key, body)
 
 	def bind(self, routing_key):

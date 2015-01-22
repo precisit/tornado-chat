@@ -215,9 +215,6 @@ def messageHelperFunction(socket, prefix, message):
 	messageParts = message.partition(" ")
 	routing_key = prefix + messageParts[0]
 	message = messageParts[2]
-	print 'rabbitSend'
-	print 'routing_key: ' + routing_key
-	print 'message: ' + message
 
 	rabbitSend(socket, routing_key, message)
 
