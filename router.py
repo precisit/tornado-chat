@@ -112,6 +112,10 @@ def getTopics():
 	topicNames = [topicLabelToName(x) for x in topicLabels]
 	return topicNames
 
+def getUserTopicsLabels(socket):
+	topicLabels = sorted(nx.common_neighbors(g, socket, topicRootNode))
+	return topicLabels
+
 def getTopicUsers(topicName):
 	userNames = []
 	topicLabel = topicNameToLabel(topicName)
@@ -140,11 +144,9 @@ def	commandListTopics(socket, *_):
 def commandListTopicUsers(socket, topicName):
 	listResponse(socket, getTopicUsers(topicName), 'This topic has 0 subscribers')
 
-	
-
 # Returns a list of all topics the user is subscribing to
 def commandGetTopics(socket, *_):
-	topicLabels = sorted(nx.common_neighbors(g, socket, topicRootNode))
+	topicLabels = getUserTopicsLabels(socket)
 	topicNames = [topicLabelToName(x) for x in topicLabels]
 	listResponse(socket, topicNames, "You subscribe to 0 topics")
 
@@ -177,6 +179,18 @@ def commandSubscripeToTopic(socket, topicName):
 	pikaClient.bind(topicLabel)
 
 
+def unsubscribe(socket, topicLabel):
+	g.remove_edge(socket, topicLabel)
+
+	# Topic node is always connected to topicRootNode so degree>=1 always 
+	if(g.degree(topicLabel) < 2):
+		# Remove topic if no sockets subscribe to it
+		g.remove_node(topicLabel)
+
+		# Update RabbitMQ bindings
+		pikaClient.unbind(topicLabel)
+
+
 # Called to unsubscribe to a topic
 @returnOnEmpty
 def commandUnsubscripeToTopic(socket, topicName):
@@ -184,15 +198,7 @@ def commandUnsubscripeToTopic(socket, topicName):
 
 	# Remove edge between socket and topic
 	if topicLabel in g and topicLabel in g[socket]:
-		g.remove_edge(socket, topicLabel)
-
-		# Topic node is always connected to topicRootNode so degree>=1 always 
-		if(g.degree(topicLabel) < 2):
-			# Remove topic if no sockets subscribe to it
-			g.remove_node(topicLabel)
-
-			# Update RabbitMQ bindings
-			pikaClient.unbind(topicLabel)
+		unsubscribe(topicLabel)
 
 	else:
 		socket.write_message('You don\'t subscribe to that topic')
@@ -252,15 +258,17 @@ def addConnection(socket):
 
 def removeConnection(socket):
 	# Remove username node
-	try:
-		userLabel = getUserLabel(socket);
-		for x in userLabel:
-			g.remove_node(x)
+	userLabel = getUserLabel(socket);
+	if userLabel is not None:
+		g.remove_node(userLabel)
 
-			# Update RabbitMQ bindings
-			pikaClient.unbind(x)
-	except nx.NetworkXError:
-		pass
+		# Update RabbitMQ bindings
+		pikaClient.unbind(userLabel)
+
+	# Remove subscriptions
+	topicLabels = getUserTopicsLabels(socket)
+	for x in topicLabels:
+		unsubscribe(socket, x)
 	
 	# Remove socket node
 	g.remove_node(socket)
