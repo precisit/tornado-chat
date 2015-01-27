@@ -132,12 +132,49 @@ function beginTest() {
 		"Username '1' is not available"
 	)
 
+
 	registerTest(
 		'able to change name',
 		[0],
 		['/n '+name],
 		0,
 		'Your new username: '+name
+	)
+
+
+	registerTest(
+		'able to change name back again',
+		[0],
+		['/n 0'],
+		0,
+		'Your new username: 0'
+	)
+
+
+	registerTest(
+		'unable to send message without setting address',
+		[0],
+		[message],
+		0,
+		'No address is set. See help (/h)'
+	)
+
+
+	registerTest(
+		'able to send private message after setting address',
+		[0,			0],
+		['/au 1',	message],
+		1,
+		'0: '+message
+	)
+
+
+	registerTest(
+		'able to send topic message after setting address',
+		[0,				1,				0],
+		['/at '+topic,	'/ts '+topic,	message],
+		1,
+		'0: '+message
 	)
 
 
