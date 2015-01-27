@@ -22,7 +22,7 @@ for (var i = 0; i < numberOfSockets; i++) {
 		// If all sockets connected
 		if(connected == numberOfSockets) {
 			// Commence testing shortly
-			setTimeout(beginTest, 500);
+			setTimeout(beginTest, 100);
 		}
 	};
 };
@@ -39,9 +39,6 @@ function beginTest() {
 	for (var i = 0; i < numberOfSockets; i++) {
 		// Set callback
 		sockets[i].onmessage = onmessageFunction(i);
-
-		// Set names
-		sockets[i].send('/n ' + i);
 	}
 
 	// Register different tests. See below for implementation of function registerTest.
@@ -54,17 +51,26 @@ function beginTest() {
 
 	registerTest(
 		'unable to send message without setting username',
-		[0],
-		[message],
+		[0,				0],
+		['/at '+topic,	message],
 		0,
-		'fffdfggrrr5b'
+		'You must set a username before you can send messages'
 	)
 
+	var nameCommandList = [];
+	var socketIndexList = [];
+	for (var i = 0; i < numberOfSockets; i++) {
+		socketIndexList[i] = i;
+		nameCommandList[i] = ('/n '+i);
+	}
 
-	// for (var i = 0; i < numberOfSockets; i++) {
-	// 	// Set names
-	// 	sockets[i].send('/n ' + i);
-	// }
+	registerTest(
+		'able to set username',
+		socketIndexList,
+		nameCommandList,
+		0,
+		'Your new username: 0'
+	)
 	
 
 	registerTest(
@@ -168,9 +174,9 @@ function beginTest() {
 
 	registerTest(
 		'unable to send message without setting address',
-		[0],
+		[1],
 		[message],
-		0,
+		1,
 		'No address is set. See help (/h)'
 	)
 
