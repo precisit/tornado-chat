@@ -125,7 +125,7 @@ def getTopicUsers(topicName):
 		
 		for x in sockets:
 			neighbors = list(nx.common_neighbors(g, userRootNode, x))
-			if not neighbors is None:
+			if neighbors is not None:
 				# There should only be one common neighbor and it should be the username
 				userNames.append(userLabelToName(neighbors[0]))
 
@@ -216,7 +216,7 @@ def messageHelperFunction(socket, prefix, message):
 	routing_key = prefix + messageParts[0]
 	message = messageParts[2]
 
-	rabbitSend(socket, routing_key, message)
+	sendRabbitMQMessage(socket, routing_key, message)
 
 @returnOnEmpty
 def commandSetAddressToUser(socket, userName):
@@ -257,7 +257,7 @@ def addConnection(socket):
 def removeConnection(socket):
 	# Remove username node
 	try:
-		userLabel = list(nx.common_neighbors(g, socket, userRootNode))
+		userLabel = getUserLabel(socket);
 		for x in userLabel:
 			g.remove_node(x)
 
@@ -300,9 +300,9 @@ def routeMessage(socket, message):
 		return
 
 	print 'socket.routing_key: ' + socket.routing_key
-	rabbitSend(socket, socket.routing_key, message)
+	sendRabbitMQMessage(socket, socket.routing_key, message)
 
-def rabbitSend(socket, routing_key, message):
+def sendRabbitMQMessage(socket, routing_key, message):
 	userName = getUserName(socket)
 	if userName is None:
 		socket.write_message("You must set a username before you can send messages")
