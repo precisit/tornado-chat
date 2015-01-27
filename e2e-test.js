@@ -22,7 +22,7 @@ for (var i = 0; i < numberOfSockets; i++) {
 		// If all sockets connected
 		if(connected == numberOfSockets) {
 			// Commence testing shortly
-			setTimeout(beginTest, 100);
+			setTimeout(beginTest, 500);
 		}
 	};
 };
@@ -50,6 +50,21 @@ function beginTest() {
 	var topic = 'someTopic';
 	var message = 'someMessage';
 	var name = 'someName';
+
+
+	registerTest(
+		'unable to send message without setting username',
+		[0],
+		[message],
+		0,
+		'fffdfggrrr5b'
+	)
+
+
+	// for (var i = 0; i < numberOfSockets; i++) {
+	// 	// Set names
+	// 	sockets[i].send('/n ' + i);
+	// }
 	
 
 	registerTest(
