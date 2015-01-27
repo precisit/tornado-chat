@@ -116,18 +116,14 @@ def getTopicUsers(topicName):
 	userNames = []
 	topicLabel = topicNameToLabel(topicName)
 
-	# TODO: Optimize the following fulhack (<--swedish word)
-
 	if topicLabel in g:
 		sockets = [x for x in g[topicLabel]]
 		sockets.remove('topicRootNode')
 
-		
 		for x in sockets:
-			neighbors = list(nx.common_neighbors(g, userRootNode, x))
-			if neighbors is not None:
-				# There should only be one common neighbor and it should be the username
-				userNames.append(userLabelToName(neighbors[0]))
+			userName = getUserName(socket)
+			if userName is not None:
+				userNames.append(userName)
 
 	return userNames
 
