@@ -116,7 +116,7 @@ def getUserTopicsLabels(socket):
 	topicLabels = sorted(nx.common_neighbors(g, socket, topicRootNode))
 	return topicLabels
 
-def getTopicUsers(topicName):
+def getTopicUsers(socket, topicName):
 	userNames = []
 	topicLabel = topicNameToLabel(topicName)
 
@@ -142,7 +142,7 @@ def	commandListTopics(socket, *_):
 
 # Returns a list of all users subscribing to a topic
 def commandListTopicUsers(socket, topicName):
-	listResponse(socket, getTopicUsers(topicName), 'This topic has 0 subscribers')
+	listResponse(socket, getTopicUsers(socket, topicName), 'This topic has 0 subscribers')
 
 # Returns a list of all topics the user is subscribing to
 def commandGetTopics(socket, *_):
@@ -198,7 +198,7 @@ def commandUnsubscripeToTopic(socket, topicName):
 
 	# Remove edge between socket and topic
 	if topicLabel in g and topicLabel in g[socket]:
-		unsubscribe(topicLabel)
+		unsubscribe(socket, topicLabel)
 
 	else:
 		socket.write_message('You don\'t subscribe to that topic')
@@ -306,12 +306,13 @@ def routeMessage(socket, message):
 	print 'socket.routing_key: ' + socket.routing_key
 	sendRabbitMQMessage(socket, socket.routing_key, message)
 
+
 def sendRabbitMQMessage(socket, routing_key, message):
 	userName = getUserName(socket)
 	if userName is None:
 		socket.write_message("You must set a username before you can send messages")
 		return
-
+		
 	rabbitMessage = {
 		'sender': userName,
 		'body': message
