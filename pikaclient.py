@@ -4,7 +4,8 @@ import router
 from pika.adapters.tornado_connection import TornadoConnection
 
 # Configuration parameters
-rabbitmq_exchange_name = 'tornado-chat-2'
+rabbitmq_exchange = 'tornado-chat-2'
+server_routing_key = 'server_routing_key'
 
 class PikaClient(object):
 
@@ -16,7 +17,8 @@ class PikaClient(object):
 		self.connecting = False
 		self.connection = None
 		self.channel = None
-		self.queue_name = None
+		self.client_queue = None
+		self.server_queue = None
 
 		self.event_listeners = set([])
 
@@ -54,28 +56,58 @@ class PikaClient(object):
 
 		# Declare exchange
 		channel.exchange_declare(
-			exchange = rabbitmq_exchange_name,
+			exchange = rabbitmq_exchange,
 			type = 'direct'
 		)
 
-		# Declare queue
-		channel.queue_declare(self.on_queue_declare_ok, exclusive=True, auto_delete=True)
+		# Declare client queue
+		channel.queue_declare(self.on_client_queue_declare_ok, queue='client_queue', exclusive=True, auto_delete=True)
+
+		# Declare server queue
+		channel.queue_declare(self.on_server_queue_declare_ok, queue='server_queue', exclusive=True, auto_delete=True)
 		
 
-	def on_queue_declare_ok(self, queue):
-		self.queue_name = queue.method.queue
+	def on_client_queue_declare_ok(self, queue):
+		self.client_queue = queue.method.queue
 
 		# Declare callback for messages
 		self.channel.basic_consume(
-			self.on_message,
-			queue = self.queue_name,
+			self.on_client_message,
+			queue = self.client_queue,
 			no_ack = True
 		)
 
-	def send(self, routing_key, message):
+	def on_server_queue_declare_ok(self, queue):
+		self.server_queue = queue.method.queue
+
+		
+		# Declare callback for messages
+		self.channel.basic_consume(
+			self.on_server_message,
+			queue = self.server_queue,
+			no_ack = True
+		)
+
+		# Bind queue
+		self.channel.queue_bind(
+			self.on_bind_ok,
+			exchange = rabbitmq_exchange,
+			queue = self.server_queue,
+			routing_key = server_routing_key
+		)
+
+
+	def send_user_message(self, routing_key, message):
 		self.channel.basic_publish(
-			exchange = rabbitmq_exchange_name,
+			exchange = rabbitmq_exchange,
 			routing_key = routing_key,
+			body = message
+		)
+
+	def send_server_message(self, message):
+		self.channel.basic_publish(
+			exchange = rabbitmq_exchange,
+			routing_key = server_routing_key,
 			body = message
 		)
  
@@ -83,25 +115,37 @@ class PikaClient(object):
 		print 'PikaClient: rabbit connection closed'
 		self.io_loop.stop()
  
-	def on_message(self, channel, method, header, body):
-		router.processRabbitMQMessage(method.routing_key, body)
+	def on_client_message(self, channel, method, header, body):
+		router.rabbitProcessClientMessage(method.routing_key, body)
 
-	def bind(self, routing_key):
+	def on_server_message(self, channel, method, header, body):
+		router.rabbitProcessServerMessage(method.routing_key, body)
+
+	def bind_client_queue(self, routing_key):
 		self.channel.queue_bind(
 			self.on_bind_ok,
-			exchange = rabbitmq_exchange_name,
-			queue = self.queue_name,
+			exchange = rabbitmq_exchange,
+			queue = self.client_queue,
 			routing_key = routing_key
 		)
 
 	def on_bind_ok(self, frame):
 		pass
 
-	def unbind(self, routing_key):
+	def timed_bind_server_queue(self, seconds, routing_key):
+		self.channel.queue_bind(
+			self.on_bind_ok,
+			exchange = rabbitmq_exchange,
+			queue = self.server_queue,
+			routing_key = routing_key
+		)
+		self.io_loop.call_later(seconds, self.unbind, routing_key)
+
+	def unbind_client_queue(self, routing_key):
 		self.channel.queue_unbind(
 			self.on_bind_ok,
-			exchange = rabbitmq_exchange_name,
-			queue = self.queue_name,
+			exchange = rabbitmq_exchange,
+			queue = self.client_queue,
 			routing_key = routing_key
 		)
 

@@ -1,8 +1,13 @@
 var WebSocket = require('ws');
 
+var port = 8080;
+if (process.argv.length > 2) {
+	port = process.argv[2];
+}
+
 
 //<configuration parameters>
-var numberOfSockets = 3; //The number of sockets to connect to the server
+var numberOfSockets = 3; //The number of sockets to connect to the server. Should be at least 2.
 var j = 0; // Initial delay in time units, counter for delay
 var t = 10; // Milliseconds per time unit
 //</configuration parameters>
@@ -13,7 +18,7 @@ var connected = 0;
 
 // Setup connections
 for (var i = 0; i < numberOfSockets; i++) {
-	sockets[i] = new WebSocket('ws://0.0.0.0:8080/websocket');
+	sockets[i] = new WebSocket('ws://0.0.0.0:'+port+'/websocket');
 
 	sockets[i].onopen = function onopen() {
 		// Increment the number of connected sockets
@@ -86,7 +91,7 @@ function beginTest() {
 		'get proper topic list for other socket',
 		[1],
 		['/lt'],
-		0,
+		1,
 		topic
 	);
 
@@ -182,6 +187,33 @@ function beginTest() {
 
 
 	registerTest(
+		'get user name',
+		[1],
+		['/n'],
+		1,
+		'Your username: 1'
+	)
+
+
+	registerTest(
+		'subscribe to a topic again, get proper list of subscriptions',
+		[1,				1],
+		['/ts '+topic,	'/t'],
+		1,
+		topic
+	)
+
+
+	registerTest(
+		'able to send topic message after setting address',
+		[0,				1,				0,			0,			0,			0],
+		['/at '+topic,	'/ts '+topic,	message,	message,	message,	message],
+		1,
+		'0: '+message
+	)
+
+
+	registerTest(
 		'able to send private message after setting address',
 		[0,			0],
 		['/au 1',	message],
@@ -189,14 +221,13 @@ function beginTest() {
 		'0: '+message
 	)
 
-
-	registerTest(
-		'able to send topic message after setting address',
-		[0,				1,				0],
-		['/at '+topic,	'/ts '+topic,	message],
-		1,
-		'0: '+message
-	)
+	// registerTest(
+	// 	'able to send topic message after setting address',
+	// 	[0,				1,				0],
+	// 	['/at '+topic,	'/ts '+topic,	message],
+	// 	1,
+	// 	'0: '+message
+	// )
 
 
 	j++;
@@ -233,6 +264,11 @@ function registerTest(testString, socketIndices, commands, socketIndex, expected
 			// Print info on what was expected and what was received
 			pr('\t expected: \'' + expectedData + '\'');
 			pr('\t received: \'' + received + '\'');
+		}
+
+		// Clear latest data for next test
+		for (var i = 0; i < numberOfSockets; i++) {
+			latestData[i] = 'reset';
 		}
 	}, j*t);
 }

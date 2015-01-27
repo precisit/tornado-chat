@@ -43,9 +43,6 @@ def main():
 
 	ioloop = tornado.ioloop.IOLoop.instance()
 
-	# application.pikaClient = PikaClient(ioloop)
-	# application.pikaClient.connect()
-
 	pikaClient = PikaClient(ioloop)
 	pikaClient.connect()
 
@@ -57,7 +54,7 @@ def main():
 	else:
 		port = 8080
 
-	print "listening on port %d" % port
+	print "Server listening on port %d" % port
 	application.listen(port)
 	ioloop.start()
 

@@ -87,7 +87,7 @@ def commandName(socket, newUserName):
 			oldUserLabel = getUserLabel(socket)
 			if oldUserLabel is not None:
 				g.remove_node(oldUserLabel)
-				pikaClient.unbind(oldUserLabel)
+				pikaClient.unbind_client_queue(oldUserLabel)
 
 
 			# Add nodes and edges to routing graph
@@ -95,7 +95,7 @@ def commandName(socket, newUserName):
 			g.add_edge(newUserLabel, userRootNode)
 
 			# Add RabbitMQ bindings
-			pikaClient.bind(newUserLabel)
+			pikaClient.bind_client_queue(newUserLabel)
 
 			# Acknowledge to user that the name change succeeded
 			socket.write_message('Your new username: ' + newUserName)
@@ -176,7 +176,7 @@ def commandSubscripeToTopic(socket, topicName):
 	g.add_edge(topicLabel, topicRootNode)
 
 	# Update RabbitMQ bindings
-	pikaClient.bind(topicLabel)
+	pikaClient.bind_client_queue(topicLabel)
 
 
 def unsubscribe(socket, topicLabel):
@@ -188,7 +188,7 @@ def unsubscribe(socket, topicLabel):
 		g.remove_node(topicLabel)
 
 		# Update RabbitMQ bindings
-		pikaClient.unbind(topicLabel)
+		pikaClient.unbind_client_queue(topicLabel)
 
 
 # Called to unsubscribe to a topic
@@ -218,7 +218,7 @@ def messageHelperFunction(socket, prefix, message):
 	routing_key = prefix + messageParts[0]
 	message = messageParts[2]
 
-	sendRabbitMQMessage(socket, routing_key, message)
+	rabbitSendUserMessage(socket, routing_key, message)
 
 @returnOnEmpty
 def commandSetAddressToUser(socket, userName):
@@ -263,7 +263,7 @@ def removeConnection(socket):
 		g.remove_node(userLabel)
 
 		# Update RabbitMQ bindings
-		pikaClient.unbind(userLabel)
+		pikaClient.unbind_client_queue(userLabel)
 
 	# Remove subscriptions
 	topicLabels = getUserTopicsLabels(socket)
@@ -304,24 +304,25 @@ def routeMessage(socket, message):
 		return
 
 	print 'socket.routing_key: ' + socket.routing_key
-	sendRabbitMQMessage(socket, socket.routing_key, message)
+	rabbitSendUserMessage(socket, socket.routing_key, message)
 
 
-def sendRabbitMQMessage(socket, routing_key, message):
+def rabbitSendUserMessage(socket, routing_key, message):
 	userName = getUserName(socket)
 	if userName is None:
 		socket.write_message("You must set a username before you can send messages")
 		return
-		
+
 	rabbitMessage = {
 		'sender': userName,
 		'body': message
 	}
-	pikaClient.send(routing_key, json.dumps(rabbitMessage))
+
+	pikaClient.send_user_message(routing_key, json.dumps(rabbitMessage))
 
 
 
-def processRabbitMQMessage(routing_key, message):
+def rabbitProcessClientMessage(routing_key, message):
 	try:
 		iterator = g.neighbors_iter(routing_key)		
 	except nx.NetworkXError:
@@ -333,5 +334,16 @@ def processRabbitMQMessage(routing_key, message):
 	for x in iterator:
 		if x is not userRootNode and x is not topicRootNode:
 			x.write_message("%s: %s" % (data['sender'], data['body']))
+
+
+def rabbitSendServerMessage(message):
+	rabbitMessage = {
+		'sender': userName,
+		'body': message
+	}
+
+def rabbitProcessServerMessage(routing_key, message):
+	data = dict(json.loads(message))
+	print "SERVER_MESSAGE_RECEIVED: " + routing_key + message
 		
 
