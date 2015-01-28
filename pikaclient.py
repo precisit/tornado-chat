@@ -1,11 +1,16 @@
 import pika
 import router
+import uuid
 
 from pika.adapters.tornado_connection import TornadoConnection
 
 # Configuration parameters
 rabbitmq_exchange = 'tornado-chat-2'
 server_routing_key = 'server_routing_key'
+
+client_queue = uuid.uuid4()
+server_queue = uuid.uuid4()
+
 
 class PikaClient(object):
 
@@ -61,10 +66,10 @@ class PikaClient(object):
 		)
 
 		# Declare client queue
-		channel.queue_declare(self.on_client_queue_declare_ok, queue='client_queue', exclusive=True, auto_delete=True)
+		channel.queue_declare(self.on_client_queue_declare_ok, queue=client_queue.hex, exclusive=True, auto_delete=True)
 
 		# Declare server queue
-		channel.queue_declare(self.on_server_queue_declare_ok, queue='server_queue', exclusive=True, auto_delete=True)
+		channel.queue_declare(self.on_server_queue_declare_ok, queue=server_queue.hex, exclusive=True, auto_delete=True)
 		
 
 	def on_client_queue_declare_ok(self, queue):
