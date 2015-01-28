@@ -21,7 +21,6 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 		print "WebSocket opened."
 
 	def on_message(self, message):
-		# TODO: Pass RabbitMQ channel so router can send messages to RabbitMQ
 		router.processWebSocketMessage(self, message)
 
 	def on_close(self):
