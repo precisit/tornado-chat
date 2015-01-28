@@ -35,7 +35,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 application = tornado.web.Application([
 	(r"/", MainHandler),
 	(r"/websocket", WebSocketHandler),
-])
+], autoreload=True)
 
 def main():
 	print "Starting server"
