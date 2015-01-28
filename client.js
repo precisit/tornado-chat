@@ -1,15 +1,38 @@
 var WebSocket = require('ws');
 var promptModule = require('cli-input');
+
 var inputParser = require('./inputParser');
+var connector = require('./connector');
+
+var ticket = 'This-is-a-test-ticket';
 
 var port = 8080;
-
 if (process.argv.length > 2) {
 	port = process.argv[2];
 }
 
-// Open websocket TODO: Error handling
-var connection = new WebSocket('ws://0.0.0.0:' + port + '/websocket');
+
+var connection;
+function onReceiveConnection(newConnection) {
+	connection = newConnection;
+
+	// Overriding functions for websockethandler
+	connection.onopen = function open() {
+		// Enable sending stuff to the server
+		prompt.run()
+	};
+
+	connection.on('close', function close() {
+		console.log('Disconnected from server');
+		exit();
+	});
+
+	connection.on('message', function message(data, flags) {
+		console.log(data);
+	});
+}
+connector.connect(port, ticket, onReceiveConnection);
+
 
 // Initialize prompt
 var prompt = promptModule({
@@ -25,32 +48,8 @@ prompt.on('value', function(line) {
 		exit();
 	}
 	else {
-		// var message = {};
-		// console.log(line);
-		// if (line[0][0] === '/') {
-		// 	message.command =  String(line.splice(0,1));
-		// 	message.argument = String(line.splice(0,1));
-		// }
-		// message.payload = line.join(' ');
-
-		// connection.send(JSON.stringify(message), {mask: true});
-		connection.send(inputParser.input_to_json_string(line), {mask: true});
+		connection.send(inputParser.format(line), {mask: true});
 	}
-});
-
-// Overriding functions for websockethandler
-connection.onopen = function open() {
-	// Enable sending stuff to the server
-	prompt.run()
-};
-
-connection.on('close', function close() {
-	console.log('Disconnected from server');
-	exit();
-});
-
-connection.on('message', function message(data, flags) {
-	console.log(data);
 });
 
 

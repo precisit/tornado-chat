@@ -1,4 +1,4 @@
-function input_to_json_string(line) {
+function format(line) {
 	var message = {};
 
 	if (line[0][0] === '/') {
@@ -10,4 +10,4 @@ function input_to_json_string(line) {
 	return JSON.stringify(message);
 }
 
-module.exports.input_to_json_string = input_to_json_string;
+module.exports.format = format;
