@@ -134,14 +134,17 @@ def getTopicUsers(socket, topicName):
 
 # Returns a list of all users
 def commandListUsers(socket, *_):
+	rabbitSendServerMessage('Send a list of all usernames on this server')
 	listResponse(socket, getUsers(), "There are 0 named users")
 
 # Returns a list of all topics
 def	commandListTopics(socket, *_):
+	rabbitSendServerMessage('Send a list of all topics on this server')
 	listResponse(socket, getTopics(), "There are 0 topics")
 
 # Returns a list of all users subscribing to a topic
 def commandListTopicUsers(socket, topicName):
+	rabbitSendServerMessage('Send a list of all usernames on this server subscribed to the topic ' + topicName)
 	listResponse(socket, getTopicUsers(socket, topicName), 'This topic has 0 subscribers')
 
 # Returns a list of all topics the user is subscribing to
@@ -338,9 +341,10 @@ def rabbitProcessClientMessage(routing_key, message):
 
 def rabbitSendServerMessage(message):
 	rabbitMessage = {
-		'sender': userName,
+		# 'sender': userName,
 		'body': message
 	}
+	pikaClient.send_server_message(json.dumps(rabbitMessage))
 
 def rabbitProcessServerMessage(routing_key, message):
 	data = dict(json.loads(message))
