@@ -237,7 +237,9 @@ function beginTest() {
 
 
 
-
+var testsTotal = 0;
+var testsPassed = 0;
+var testsFailed = 0;
 
 // testString: String explaining the test
 // socketIndices: a list of socket indices to which the commands should be sent
@@ -245,6 +247,7 @@ function beginTest() {
 // socketIndex: index of socket for which to compare latest data with expected data
 // expectedData: the expected return from the server after the last command has been sent
 function registerTest(testString, socketIndices, commands, socketIndex, expectedData) {
+	testsTotal++;
 	// Set timeouts for sending commands
 	for (var i = 0; i < commands.length; i++) {
 		j++;
@@ -256,6 +259,11 @@ function registerTest(testString, socketIndices, commands, socketIndex, expected
 	setTimeout( function () {
 		received = latestData[socketIndex]
 		passed = (received == expectedData);
+		if (passed) {
+			testsPassed++;
+		} else {
+			testsFailed++;
+		}
 
 		// Print information on whether test passed or failed
 		pr((passed ? '[X] PASSED' : '[ ] FAILED') + '\t' + testString);
@@ -270,6 +278,10 @@ function registerTest(testString, socketIndices, commands, socketIndex, expected
 		// Clear latest data for next test
 		for (var i = 0; i < numberOfSockets; i++) {
 			latestData[i] = 'reset';
+		}
+
+		if (testsTotal == testsPassed + testsFailed) {
+			pr('\nTESTS PASSED: ' + testsPassed + '/' + testsTotal + '\n');
 		}
 	}, j*t);
 }
