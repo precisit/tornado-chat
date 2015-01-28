@@ -1,4 +1,5 @@
 var WebSocket = require('ws');
+var inputParser = require('./inputParser');
 
 var port = 8080;
 if (process.argv.length > 2) {
@@ -276,7 +277,7 @@ function registerTest(testString, socketIndices, commands, socketIndex, expected
 // Didn't figure out how to do this properly with an anonymous function so here's a regular function instead
 function sendFunction(socketIndex, command) {
 	return function () {
-		sockets[socketIndex].send(command);
+		sockets[socketIndex].send(inputParser.input_to_json_string(command.split(' ')));
 	};
 }
 
