@@ -24,8 +24,15 @@ prompt.on('value', function(line) {
 		exit();
 	}
 	else {
-		var message = line.join(' ');
-		connection.send(message, {mask: true});
+		var message = {};
+		console.log(line);
+		if (line[0][0] === '/') {
+			message.command =  String(line.splice(0,1));
+			message.argument = String(line.splice(0,1));
+		}
+		message.payload = line.join(' ');
+
+		connection.send(JSON.stringify(message), {mask: true});
 	}
 });
 
