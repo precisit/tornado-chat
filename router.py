@@ -35,12 +35,12 @@ def userLabelToName(userLabel):
 
 # Function decorator for returning if message is empty
 def returnOnEmpty(func):
-	def decorated(socket,message):
-		if(message == ''):
-			print 'Empty message'
+	def decorated(socket, argument, payload):
+		if(argument == ''):
+			print 'No argument supplied to function'
 			return
 		else:
-			func(socket,message)
+			func(socket, argument, payload)
 	return decorated
 
 
@@ -68,7 +68,7 @@ def getUserName(socket):
 
 
 # Sets a new username or returns the current username
-def commandName(socket, newUserName):
+def commandName(socket, newUserName, *_):
 	newUserName = str(newUserName)
 
 	if(newUserName == ''):
@@ -143,7 +143,7 @@ def	commandListTopics(socket, *_):
 	listResponse(socket, getTopics(), "There are 0 topics")
 
 # Returns a list of all users subscribing to a topic
-def commandListTopicUsers(socket, topicName):
+def commandListTopicUsers(socket, topicName, *_):
 	rabbitSendServerMessage('Send a list of all usernames on this server subscribed to the topic ' + topicName)
 	listResponse(socket, getTopicUsers(socket, topicName), 'This topic has 0 subscribers')
 
@@ -169,7 +169,7 @@ def listResponse(socket, nodeList, emptyResponse):
 
 # Called to subscribe to a topic
 @returnOnEmpty
-def commandSubscripeToTopic(socket, topicName):
+def commandSubscripeToTopic(socket, topicName, *_):
 	topicLabel = topicNameToLabel(topicName)
 
 	# Add edge between socket and topic
@@ -182,7 +182,7 @@ def commandSubscripeToTopic(socket, topicName):
 	pikaClient.bind_client_queue(topicLabel)
 
 
-def unsubscribe(socket, topicLabel):
+def unsubscribe(socket, topicLabel, *_):
 	g.remove_edge(socket, topicLabel)
 
 	# Topic node is always connected to topicRootNode so degree>=1 always 
@@ -196,7 +196,7 @@ def unsubscribe(socket, topicLabel):
 
 # Called to unsubscribe to a topic
 @returnOnEmpty
-def commandUnsubscripeToTopic(socket, topicName):
+def commandUnsubscripeToTopic(socket, topicName, *_):
 	topicLabel = topicNameToLabel(topicName)
 
 	# Remove edge between socket and topic
@@ -209,26 +209,19 @@ def commandUnsubscripeToTopic(socket, topicName):
 	
 
 @returnOnEmpty
-def commandPrivateMessage(socket, message):
-	messageHelperFunction(socket, userPrefix, message)
+def commandPrivateMessage(socket, userName, message):
+	rabbitSendClientMessage(socket, userNameToLabel(userName), message)
 
 @returnOnEmpty
-def commandTopicMessage(socket, message):
-	messageHelperFunction(socket, topicPrefix, message)
-
-def messageHelperFunction(socket, prefix, message):
-	messageParts = message.partition(" ")
-	routing_key = prefix + messageParts[0]
-	message = messageParts[2]
-
-	rabbitSendUserMessage(socket, routing_key, message)
+def commandTopicMessage(socket, topicName, message):
+	rabbitSendClientMessage(socket, topicNameToLabel(topicName), message)
 
 @returnOnEmpty
-def commandSetAddressToUser(socket, userName):
+def commandSetAddressToUser(socket, userName, *_):
 	socket.routing_key = userNameToLabel(userName)
 
 @returnOnEmpty
-def commandSetAddressToTopic(socket, topicName):
+def commandSetAddressToTopic(socket, topicName, *_):
 	socket.routing_key = topicNameToLabel(topicName)
 
 
@@ -281,19 +274,12 @@ def removeConnection(socket):
 
 def processWebSocketMessage(socket, message):
 	print "MESSAGE: %s" % message
-	# Remove trailing whitespace
-	message = message.rstrip();
+	data = json.loads(message)
 
-	if(message[0] == commandPrefix):
-		# Partition message to get command
-		messageParts = message.partition(" ")
-
-		# The command is the first element
-		cmd = messageParts[0]
-
+	if 'command' in data:
+		cmd = data['command']
 		if cmd in commands:
-			# If the command is valid call the appropriate callback
-			commands[cmd]['function'](socket, messageParts[2])
+			commands[cmd]['function'](socket, data['argument'], data['payload'])
 		else:
 			socket.write_message('Unrecognized command: ' + cmd)
 	else:
@@ -307,10 +293,10 @@ def routeMessage(socket, message):
 		return
 
 	print 'socket.routing_key: ' + socket.routing_key
-	rabbitSendUserMessage(socket, socket.routing_key, message)
+	rabbitSendClientMessage(socket, socket.routing_key, message)
 
 
-def rabbitSendUserMessage(socket, routing_key, message):
+def rabbitSendClientMessage(socket, routing_key, message):
 	userName = getUserName(socket)
 	if userName is None:
 		socket.write_message("You must set a username before you can send messages")
