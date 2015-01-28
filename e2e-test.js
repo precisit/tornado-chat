@@ -1,5 +1,6 @@
 var WebSocket = require('ws');
 var inputParser = require('./inputParser');
+var connector = require('./connector');
 
 var port = 8080;
 if (process.argv.length > 2) {
@@ -19,19 +20,28 @@ var connected = 0;
 
 // Setup connections
 for (var i = 0; i < numberOfSockets; i++) {
-	sockets[i] = new WebSocket('ws://0.0.0.0:'+port+'/websocket');
-
-	sockets[i].onopen = function onopen() {
-		// Increment the number of connected sockets
-		connected++;
-
-		// If all sockets connected
-		if(connected == numberOfSockets) {
-			// Commence testing shortly
-			setTimeout(beginTest, 100);
-		}
-	};
+	connector.connect(port, '', onReceiveConnection(i))
 };
+
+function onReceiveConnection(i) {
+	return function(connection) {
+		sockets[i] = connection;
+
+		sockets[i].onopen = function onopen() {
+			// Increment the number of connected sockets
+			connected++;
+
+			// If all sockets connected
+			if(connected == numberOfSockets) {
+				// Commence testing shortly
+				setTimeout(beginTest, 100);
+			}
+		};
+	};
+}
+
+
+
 
 var latestData = [];
 
@@ -289,7 +299,7 @@ function registerTest(testString, socketIndices, commands, socketIndex, expected
 // Didn't figure out how to do this properly with an anonymous function so here's a regular function instead
 function sendFunction(socketIndex, command) {
 	return function () {
-		sockets[socketIndex].send(inputParser.input_to_json_string(command.split(' ')));
+		sockets[socketIndex].send(inputParser.format(command.split(' ')));
 	};
 }
 
