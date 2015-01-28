@@ -15,13 +15,14 @@ var t = 10; // Milliseconds per time unit
 //</configuration parameters>
 
 
-var sockets = [];
-var connected = 0;
+var sockets = []; // Array of sockets
+var latestData = []; // Array of the latest data received by each socket
+var connected = 0; // Counter for number of successfully connected sockets
 
 // Setup connections
 for (var i = 0; i < numberOfSockets; i++) {
-	connector.connect(port, '', onReceiveConnection(i))
-};
+	connector.connect(port, '', onReceiveConnection(i));
+}
 
 function onReceiveConnection(i) {
 	return function(connection) {
@@ -43,9 +44,9 @@ function onReceiveConnection(i) {
 
 
 
-var latestData = [];
 
-function onmessageFunction(i) {
+
+function onMessageFunction(i) {
 	return function (data, flags) {
 		latestData[i] = data['data'];
 	};
@@ -54,7 +55,7 @@ function onmessageFunction(i) {
 function beginTest() {
 	for (var i = 0; i < numberOfSockets; i++) {
 		// Set callback
-		sockets[i].onmessage = onmessageFunction(i);
+		sockets[i].onmessage = onMessageFunction(i);
 	}
 
 	// Register different tests. See below for implementation of function registerTest.
