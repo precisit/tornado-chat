@@ -1,5 +1,6 @@
 var WebSocket = require('ws');
 var promptModule = require('cli-input');
+var inputParser = require('./inputParser');
 
 var port = 8080;
 
@@ -24,15 +25,16 @@ prompt.on('value', function(line) {
 		exit();
 	}
 	else {
-		var message = {};
-		console.log(line);
-		if (line[0][0] === '/') {
-			message.command =  String(line.splice(0,1));
-			message.argument = String(line.splice(0,1));
-		}
-		message.payload = line.join(' ');
+		// var message = {};
+		// console.log(line);
+		// if (line[0][0] === '/') {
+		// 	message.command =  String(line.splice(0,1));
+		// 	message.argument = String(line.splice(0,1));
+		// }
+		// message.payload = line.join(' ');
 
-		connection.send(JSON.stringify(message), {mask: true});
+		// connection.send(JSON.stringify(message), {mask: true});
+		connection.send(inputParser.input_to_json_string(line), {mask: true});
 	}
 });
 
