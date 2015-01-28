@@ -283,31 +283,22 @@ def processWebSocketMessage(socket, message):
 		else:
 			socket.write_message('Unrecognized command: ' + cmd)
 	else:
-		routeMessage(socket,message)
-
-
-
-def routeMessage(socket, message):
-	if socket.routing_key is None:
-		socket.write_message("No address is set. See help (/h)")
-		return
-
-	print 'socket.routing_key: ' + socket.routing_key
-	rabbitSendClientMessage(socket, socket.routing_key, message)
+		if socket.routing_key is not None:
+			rabbitSendClientMessage(socket, socket.routing_key, data['payload'])
+		else:
+			socket.write_message("No address is set. See help (/h)")
 
 
 def rabbitSendClientMessage(socket, routing_key, message):
 	userName = getUserName(socket)
 	if userName is None:
 		socket.write_message("You must set a username before you can send messages")
-		return
-
-	rabbitMessage = {
-		'sender': userName,
-		'body': message
-	}
-
-	pikaClient.send_user_message(routing_key, json.dumps(rabbitMessage))
+	else:
+		rabbitMessage = {
+			'sender': userName,
+			'payload': message
+		}
+		pikaClient.send_user_message(routing_key, json.dumps(rabbitMessage))
 
 
 
@@ -318,11 +309,11 @@ def rabbitProcessClientMessage(routing_key, message):
 		print 'Invalid routing key received'
 		return
 
-	data = dict(json.loads(message))
+	data = json.loads(message)
 
 	for x in iterator:
 		if x is not userRootNode and x is not topicRootNode:
-			x.write_message("%s: %s" % (data['sender'], data['body']))
+			x.write_message("%s: %s" % (data['sender'], data['payload']))
 
 
 def rabbitSendServerMessage(message):
@@ -333,7 +324,7 @@ def rabbitSendServerMessage(message):
 	pikaClient.send_server_message(json.dumps(rabbitMessage))
 
 def rabbitProcessServerMessage(routing_key, message):
-	data = dict(json.loads(message))
+	data = json.loads(message)
 	print "SERVER_MESSAGE_RECEIVED: " + routing_key + message
 		
 
