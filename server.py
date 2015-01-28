@@ -32,7 +32,7 @@ class MainHandler(tornado.web.RequestHandler):
 		wsTicketSet.add(wsTicket)
 
 		response = {
-			'WebSocketTicket': newWsTicket,
+			'WebSocketTicket': wsTicket,
 			'WebSocketPort': port
 		}
 		self.write(json.dumps(response))
