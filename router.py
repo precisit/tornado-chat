@@ -319,7 +319,7 @@ def rabbitProcessClientMessage(routing_key, message):
 def rabbitSendServerMessage(message):
 	rabbitMessage = {
 		# 'sender': userName,
-		'body': message
+		'payload': message
 	}
 	pikaClient.send_server_message(json.dumps(rabbitMessage))
 
